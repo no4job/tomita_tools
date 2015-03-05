@@ -1,66 +1,63 @@
 __author__ = 'mdu'
-import os
-import sys
-import codecs
-#import tools
 from tools import *
-from glob import glob
-from unidecode import unidecode
-#x=u'\xe0'.encode("utf-8", errors='replace').decode("utf-8", errors='replace' )
-x=u'\xe0'
-print (sys.stdout.encoding)
-#sys.setdefaultencoding(sys.stdout.encoding or sys.stderr.encoding)
-#sys.stdout = codecs.getwriter("utf-8")(sys.stdout,'replace')
-#print ('\xe9')
-print ('шншшнншнр')
-print (x.encode('cp1251','replace').decode('cp1251'))
-#exit(0)
+import re
 
-#PATH = "K:\\all".encode("cp1251").decode("cp1251")
+#Tool settings
 PATH = "K:\\all"
-#print(os.path.join(PATH, '*'))
-#print (sys.getfilesystemencoding())
-#result = [y for x in os.walk(PATH) for y in glob(os.path.join(x[0], '*'))]
-#result = [y for y in os.walk(PATH.encode(encoding='MBCS'))]
-#for x in os.walk(PATH.encode(encoding='MBCS')):
-#    print ("x=",x)
-OUTPUT_ENCODING='cp1251'
+CFG_FILE = "K:\\search\\search_patterns.cfg"
+cfg = read_cfg(CFG_FILE)
+file_pattern_id=cfg["FILE_PATTERN_ID"]
+file_pattern_type=cfg["FILE_PATTERN_TYPE"]
+#print (file_pattern_id,"\n",FILE_PATTERN_ID)
+#print (file_pattern_type,"\n",FILE_PATTERN_TYPE)
+#exit (0)
+# check recursively for non printable characters
 files=[]
-#dirs = [x for x in os.walk(PATH.encode(encoding='MBCS')) ]
-dirs = [x for x in os.walk(PATH) ]
-#print (dirs)
-non_printable_dir_name_counter = 0
-non_printable_f_name_counter = 0
-for dir in dirs:
-    non_printable_positions=non_printable(dir[0],OUTPUT_ENCODING)
-    if (non_printable_positions):
-        print ("d:",non_printable_positions, dir[0].replace('\\\\', '\\').encode('cp1251','replace').decode('cp1251'),
-               unidecode(dir[0].replace('\\\\', '\\')))
-        non_printable_dir_name_counter+=1
+dir_name_counter = 0
+f_name_counter = 0
+f_name_matched_counter = 0
+print("Start file selection")
+# traverse all dirs and files recursively
+for dir in os.walk(top=PATH):
+    # test and rename file names
     for f_name in dir[2]:
-        #f_set= [dir[0].decode(encoding='MBCS'),f_name,'']
-        f_set= [dir[0],f_name,'']
-        files.append(f_set)
-        non_printable_positions=non_printable(f_name,OUTPUT_ENCODING)
-        if (non_printable_positions):
-            print ("f:",non_printable_positions, dir[0].replace('\\\\', '\\').encode('cp1251','replace').decode('cp1251'),
-             " : ",f_name.replace('\\\\', '\\').encode('cp1251','replace').decode('cp1251'),
-             unidecode(f_name.replace('\\\\', '\\')))
-            non_printable_f_name_counter+=1
-
-#print( os.listdir(PATH) )
-#print (files[0],'\n',files[1][0].replace(b'\\\\',b'\\'),files[1],'\n',files[3])
-if non_printable_dir_name_counter + non_printable_f_name_counter:
-    print ("non printable dir names:",non_printable_dir_name_counter,
-           "non printable file names:",non_printable_f_name_counter )
-    exit(0)
+        m_type=re.match(file_pattern_type, f_name, re.IGNORECASE)
+        m_id=re.match(file_pattern_id, f_name, re.IGNORECASE)
+        if  m_type and m_id:
+            #print ("f:",m_id.group("id"),":", os.path.join(dir[0],f_name))
+            files.append([m_id.group("id"),dir[0],f_name])
+            f_name_matched_counter+=1
+        elif  m_type and not m_id :
+            f_name_counter+=1
+        else:
+            f_name_counter+=1
+print("End file selection")
+print ("file names:",f_name_counter )
+print ("matched file names:",f_name_matched_counter )
+# search duplicated id
+print("Start search id duplicates")
+files_duplicated=dict()
 for f in files:
-    _path=f[0].encode(OUTPUT_ENCODING,'replace').decode(OUTPUT_ENCODING)
-    _f_name= f[1].encode(OUTPUT_ENCODING,'replace').decode(OUTPUT_ENCODING)
-    non_printable_dir= _path != f[0]
-    non_printable_f_name= _f_name != f[1]
-    print (f[0].replace('\\\\','\\').encode('cp1251','replace').decode('cp1251'),
-           f[1].encode('cp1251','replace').decode('cp1251'),f[2])
-    print(len(files))
+    if f[0] in files_duplicated:
+        files_duplicated[f[0]]+=[files.index(f)]
+    else:
+        files_duplicated[f[0]]=[files.index(f)]
+#for i in [[index for index in files_duplicated[id]] for id  in files_duplicated if len(files_duplicated[id])>1 ]:
+f_name_duplicated=0
+total_duplicated_f_size=0
+# print duplicated id
+for id  in sorted([id for id in files_duplicated if len(files_duplicated[id])>1], key= lambda id:int(id),reverse=True):
+    print ("*"*60)
+    for index  in files_duplicated[id]:
+        full_f_name=os.path.join(files[index][1],files[index][2])
+        f_size=os.path.getsize(full_f_name)
+        total_duplicated_f_size+=f_size
+        f_name_duplicated+=1
+        print (files[index][0],":",f_size//1000000,"MB:",full_f_name)
+
+print("End search id duplicates")
+print("Files with id duplicates:",f_name_duplicated)
+print("Total size of files with duplicated id:",total_duplicated_f_size//1000000,"MB")
+exit(0)
 
 

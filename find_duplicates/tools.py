@@ -49,3 +49,18 @@ def rename_if_exist(t,name):
             _name=fileName+"("+str(sfx)+")"+fileExtension
             sfx+=1
     return _name
+
+def read_cfg(cfg_file):
+    try:
+        with open(cfg_file, 'r') as f:
+                cfg_str=f.readlines()
+    except EnvironmentError as err : # parent of IOError, OSError *and* WindowsError where available
+        print("Жопа")
+        raise
+    cfg={}
+    for  param in cfg_str:
+        name,value = param.split('=',1)
+        name=name.strip()
+        value=value.replace('"','').strip()
+        cfg[name]=value
+    return cfg
