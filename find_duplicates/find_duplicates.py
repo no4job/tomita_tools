@@ -1,16 +1,16 @@
 __author__ = 'mdu'
 from tools import *
 import re
+import configparser
 
 #Tool settings
 PATH = "K:\\all"
 CFG_FILE = "K:\\search\\search_patterns.cfg"
-cfg = read_cfg(CFG_FILE)
-file_pattern_id=cfg["FILE_PATTERN_ID"]
-file_pattern_type=cfg["FILE_PATTERN_TYPE"]
-#print (file_pattern_id,"\n",FILE_PATTERN_ID)
-#print (file_pattern_type,"\n",FILE_PATTERN_TYPE)
-#exit (0)
+config = configparser.ConfigParser()
+config.read(CFG_FILE)
+file_pattern_id=config['DEFAULT']['file_pattern_id']
+file_pattern_type=config['DEFAULT']['file_pattern_type']
+
 # check recursively for non printable characters
 files=[]
 dir_name_counter = 0
