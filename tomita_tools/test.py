@@ -3,46 +3,19 @@ __author__ = 'mdu'
 import os
 import io
 import re
+from tomita_tools import Fragments
 from io import StringIO
+
 
 try:
     from lxml import etree
     print("running with lxml.etree")
 except ImportError:
-    try:
-        # Python 2.5
-        import xml.etree.cElementTree as etree
-        print("running with cElementTree on Python 2.5+")
-    except ImportError:
-        try:
-            # Python 2.5
-            import xml.etree.ElementTree as etree
-            print("running with ElementTree on Python 2.5+")
-        except ImportError:
-            try:
-                # normal cElementTree install
-                import cElementTree as etree
-                print("running with cElementTree")
-            except ImportError:
-                try:
-                    # normal ElementTree install
-                    import elementtree.ElementTree as etree
-                    print("running with ElementTree")
-                except ImportError:
-                    print("Failed to import ElementTree from any known place")
+ pass
 
-#parser = etree.HTMLParser()
-#tree = etree.parse(os.path.join(os.getcwd(),"test_1u.htm"), parser)
-#print (etree.tostring(tree.getroot(), pretty_print=True))
-#print(etree.tostring(tree))
-'''
-def iterateTextElements(element,textElements):
-    if element.text != None:
-        element.
-        #textElements
-'''
-# ******* read word markup style names from cofig file
-styleList=[]
+
+# ******* read word markup style names from config file
+styleList=[] # list of lists [markup style name, marup style ID]
 with io.open(file="StylesList.txt", encoding="cp1251",mode="rt") as f:
     for s in f.read().splitlines():
         styleList.append(s.split(","))
@@ -50,68 +23,116 @@ with io.open(file="StylesList.txt", encoding="cp1251",mode="rt") as f:
 s=""
 with open("test.htm", "r") as f:
     s=f.read()
-classStyleMap={}
+styleClassMap={}#***dictionary {markup style name, markup css class name}
+classStyleMap={}#***dictionary {markup css class name,markup style name}
 for style in styleList:
     className = re.findall('(\w+)[\s\n]*\{[^\{]*'+style[0].replace("/","\\\\/")+'\W*;', s,flags=re.DOTALL | re.IGNORECASE)
-    classStyleMap[style[0]]=className[0] if len(className)> 0 else ""
-
-print(classStyleMap)
+    styleClassMap[style[0]]=className[0] if len(className)> 0 else ""
+    if len(className)>0:
+        classStyleMap[className[0]]= style[0]
+#print(styleClassMap)
 #******* map text element and parent markup css class
-#******* remove \n from html
+#******* step 1: remove \n from html
 with open("test.htm", "r") as f:
-    s=re.sub("[\n]+","",f.read())
-    print (s)
+    s=f.read()
+#*** special case: \n inside tag replcacing with " "
+    while True:
+        tagBreaks=re.findall("(<[^<^>]*)([\n])([^<^>]*>)",s)
+        if len(tagBreaks)== 0:
+            break
+        for tagBreak in tagBreaks:
+            searchPattern = tagBreak[0]+tagBreak[1]+tagBreak[2]
+            s=s.replace(searchPattern,tagBreak[0]+" "+tagBreak[2])
+#*** common case: \n between tag replcacing with ""
+    #print (s)
+    s=re.sub("[\n]+","",s)
+#    print (s)
+#******* step 2: get <body> element from clean string
 parser = etree.HTMLParser()
 #doc_tree = etree.parse(os.path.join(os.getcwd(),"test.htm"),parser)
-doc_tree = etree.parse(StringIO(s),parser)
+doc_tree = etree.parse(StringIO(s),parser)#parse string cleaned from \n as io stream
 root = doc_tree.getroot()
 body = doc_tree.find('body')
-textElements=[]
-#*****create css markup class name pattern
+print (etree.tostring(body, pretty_print=True))
+#******* step 3: create string with search pattern from css markup class names
 cssMarkupClassNamePattern=""
-for className in classStyleMap:
-    cssMarkupClassNamePattern+=(classStyleMap[className]+"|")
+for className in styleClassMap:
+    cssMarkupClassNamePattern+=(styleClassMap[className]+"|")
 cssMarkupClassNamePattern=cssMarkupClassNamePattern[:-1]
-#******create  css markup dictionary for elements
-elementsWithCSSClass=body.xpath("descendant-or-self::*[@class]")
-elementsWithMarkupCSSClass=[]
+
+#******* step 4: create  css markup dictionary {element, nearest outer element with markup css class attribute}
+elementsWithCSSClass=body.xpath("descendant-or-self::*[@class]")#list of all elements with css class attribute
+elementsWithMarkupCSSClass=[]#***list of elements with markup css class attribute
 for element in elementsWithCSSClass:
     if re.match(cssMarkupClassNamePattern,element.attrib["class"]):
         elementsWithMarkupCSSClass.append(element)
-markupedElements={}
+markupedElements={}#***dictionary {element, nearest outer element with markup css class attribute}
 #markupedElement={}
 for elementWithMarkupCSSClass in elementsWithMarkupCSSClass:
     for element in elementWithMarkupCSSClass.xpath("descendant-or-self::*"):
         markupedElements[element]=elementWithMarkupCSSClass
         #markupedElements[element]=elementWithMarkupCSSClass.attrib["class"]
 #exit(0)
-#******search css markup class name for each text element
 
+
+
+
+#******* step 5: extract text  from markuped elements and map them with css markup elements
+
+#***function return list of lists where each list contain:
+#  [text or tail, nearest outer element with markup css class attribute]
+#  texts/tails ordered as in the parsed document
 def iterateTextElements(element,textElements,markupedElements):
     textElement=[]
     if element.text != None:
+        #***create list of 2 elemets - [text of element ,nearest outer element with markup css class attribute]
         textElement.append(element.text)
         textElement.append(markupedElements.get(element))
+        #***append above list to list of lists
         textElements.append(textElement)
+    #***recursive iterate over child elements
     for childElement in element:
         iterateTextElements(childElement,textElements,markupedElements)
-    textElement=[]
-    if element.tail != None:
-        textElement.append(element.tail)
-        textElement.append(markupedElements.get(element))
-        textElements.append(textElement)
+        textElement=[]
+        if childElement.tail != None:
+            #***create list of 2 elemets - [tail of element ,nearest outer element with markup css class attribute]
+            textElement.append(childElement.tail)
+            textElement.append(markupedElements.get(element))
+            #***append above list to list of lists
+            textElements.append(textElement)
 
-textElements=[]
+textElements=[]#***list of lists where each list contain text or tail in the order as in the parsed document
 iterateTextElements(body,textElements,markupedElements)
-#******create text file
+
+#******* step 6: create output text file
 s=""
 for element in textElements:
     s=s+element[0]
 with open("out_text.txt", "w") as f:
     f.write(s)
 
+#******* step 7: create output XML file
 
+replacements=[]
+length=0
+position = 0
+for element in textElements:
+    if element[1] != None:
+        kw={}
+        kw["TEXT"]=element[0]
+        kw["LENGTH"]=len(element[0])
+        kw["POSITION"]=position
+        position+=len(element[0])
+        kw["MARKUP_STYLE_NAME"]=classStyleMap.get(element[1].attrib["class"])
+        kw["MARKUP_CSS_CLASS_NAME"]=element[1].attrib["class"]
+        kw["PATH_TO_ELEMENT_WITH_CSS_MARKUP"]=doc_tree.getpath(element[1])
+        r=Fragments.Replacement(**kw)
+        replacements.append(r)
 exit(0)
+
+
+
+
 '''
 for element in body.iter():
     #if
