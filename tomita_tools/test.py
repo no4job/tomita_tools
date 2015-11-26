@@ -5,6 +5,7 @@ import io
 import re
 from tomita_tools import Fragments
 from io import StringIO
+from datetime import datetime
 
 
 try:
@@ -15,25 +16,32 @@ except ImportError:
 
 
 # ******* read word markup style names from config file
-styleList=[] # list of lists [markup style name, marup style ID]
+styleList={} # list of lists [markup style name, marup style ID]
 with io.open(file="StylesList.txt", encoding="cp1251",mode="rt") as f:
     for s in f.read().splitlines():
-        styleList.append(s.split(","))
+        #styleList.append(s.split(","))
+        styleList[s.split(",")[0]]=s.split(",")[1]
 #******* map markup css class names and markup style names in html file
 s=""
-with open("test.htm", "r") as f:
+inputFileName = "Greka_marked.htm"
+#inputFileName = "test.htm"
+with open(inputFileName, "r") as f:
     s=f.read()
 styleClassMap={}#***dictionary {markup style name, markup css class name}
 classStyleMap={}#***dictionary {markup css class name,markup style name}
 for style in styleList:
-    className = re.findall('(\w+)[\s\n]*\{[^\{]*'+style[0].replace("/","\\\\/")+'\W*;', s,flags=re.DOTALL | re.IGNORECASE)
-    styleClassMap[style[0]]=className[0] if len(className)> 0 else ""
+    #className = re.findall('(\w+)[\s\n]*\{[^\{]*'+style[0].replace("/","\\\\/")+'\W*;', s,flags=re.DOTALL |
+    # re.IGNORECASE)
+    className = re.findall('(\w+)[\s\n]*\{[^\{]*'+style.replace("/","\\\\/")+'\W*;', s,flags=re.DOTALL | re.IGNORECASE)
+    #styleClassMap[style[0]]=className[0] if len(className)> 0 else ""
+    styleClassMap[style]=className[0] if len(className)> 0 else ""
     if len(className)>0:
-        classStyleMap[className[0]]= style[0]
+        #classStyleMap[className[0]]= style[0]
+        classStyleMap[className[0]]= style
 #print(styleClassMap)
 #******* map text element and parent markup css class
 #******* step 1: remove \n from html
-with open("test.htm", "r") as f:
+with open(inputFileName, "r") as f:
     s=f.read()
 #*** special case: \n inside tag replcacing with " "
     while True:
@@ -47,6 +55,7 @@ with open("test.htm", "r") as f:
     #print (s)
     s=re.sub("[\n]+","",s)
 #    print (s)
+
 #******* step 2: get <body> element from clean string
 parser = etree.HTMLParser()
 #doc_tree = etree.parse(os.path.join(os.getcwd(),"test.htm"),parser)
@@ -73,8 +82,6 @@ for elementWithMarkupCSSClass in elementsWithMarkupCSSClass:
         markupedElements[element]=elementWithMarkupCSSClass
         #markupedElements[element]=elementWithMarkupCSSClass.attrib["class"]
 #exit(0)
-
-
 
 
 #******* step 5: extract text  from markuped elements and map them with css markup elements
@@ -111,40 +118,42 @@ for element in textElements:
 with open("out_text.txt", "w") as f:
     f.write(s)
 
-#******* step 7: create output XML file
+
+#******* step 7: create list of objects with description of extracted text fragments marked as replacements
 
 replacements=[]
 length=0
-position = 0
+position = 1
 for element in textElements:
     if element[1] != None:
-        kw={}
-        kw["TEXT"]=element[0]
-        kw["LENGTH"]=len(element[0])
-        kw["POSITION"]=position
+        r=Fragments.ManualReplacement()
+        r.text=element[0]
+        r.length=len(element[0])
+        r.position=position
         position+=len(element[0])
-        kw["MARKUP_STYLE_NAME"]=classStyleMap.get(element[1].attrib["class"])
-        kw["MARKUP_CSS_CLASS_NAME"]=element[1].attrib["class"]
-        kw["PATH_TO_ELEMENT_WITH_CSS_MARKUP"]=doc_tree.getpath(element[1])
-        r=Fragments.Replacement(**kw)
+        r.markupStyleName=classStyleMap.get(element[1].attrib["class"])
+        r.markupStyleID=styleList[r.markupStyleName]
+        r.markupCSSClassName=element[1].attrib["class"]
+        r.pathToElementWithCSSMarkup=doc_tree.getpath(element[1])
         replacements.append(r)
+    position+=len(element[0])
+#******* step 7: create output XML file with replacemtnts
+def createXMLWithReplacements(replacements):
+    root = etree.XML('<fdo_objects><document url="" di="" bi="" date=""><facts></facts></document></fdo_objects>')
+    root.set('date',datetime.now().strftime('%Y-%m-%d'))
+    #facts = root.find("facts")
+    facts = root.xpath("descendant-or-self::facts")[0]
+    for replacement in replacements:
+        addReplacementToXML(facts,replacement)
+    return etree.tostring(root, xml_declaration=True,encoding="cp1251").decode("cp1251")
+
+def addReplacementToXML(facts,replacement):
+    fact = etree.SubElement(facts, replacement.markupStyleID,pos=str(replacement.position), len=str(replacement.length))
+    replacementText = etree.SubElement(fact, 'ReplacementText',val = replacement.text)
+
+with open("out_xml.xml", "w") as f:
+    s= createXMLWithReplacements(replacements)
+    f.write(s)
+
 exit(0)
 
-
-
-
-'''
-for element in body.iter():
-    #if
-    parentsWithCSS=element.xpath("ancestor::*[@class]")
-    for parent in parentsWithCSS:
-        if re.match(cssMarkupClassNamePattern,parent.attrib["class"]):
-            print("%s - %s" % (element.tag,parent.attrib["class"]))
-    #if element.xpath("ancestor::*[@classs]") != None and :
-     #   pass
-
-    print("%s-%s",(element.tag,element.text))
-print(ancestor)
-    #print(element.text if element.text!=None else "",sep="")
-#print(allMarkUpNodes)
-'''
