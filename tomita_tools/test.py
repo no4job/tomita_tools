@@ -54,6 +54,7 @@ with open(inputFileName, "r") as f:
 #*** common case: \n between tag replcacing with ""
     #print (s)
     s=re.sub("[\n]+","",s)
+    s=re.sub(" </p>","&clubs</p>",s)
 #    print (s)
 
 #******* step 2: get <body> element from clean string
@@ -92,21 +93,45 @@ for elementWithMarkupCSSClass in elementsWithMarkupCSSClass:
 def iterateTextElements(element,textElements,markupedElements):
     textElement=[]
     if element.text != None:
-        #***create list of 2 elemets - [text of element ,nearest outer element with markup css class attribute]
-        textElement.append(element.text)
-        textElement.append(markupedElements.get(element))
-        #***append above list to list of lists
-        textElements.append(textElement)
+        if "&clubs" in  element.text:
+            #***create list of 2 elemets - [text of element ,nearest outer element with markup css class attribute]
+            textElement.append(re.sub("&clubs","",element.text))
+            textElement.append(markupedElements.get(element))
+            #***append above list to list of lists
+            textElements.append(textElement)
+            textElement=[]
+            textElement.append("\n")
+            textElement.append(None)
+            textElements.append(textElement)
+            element.text= re.sub("&clubs","",element.text)
+        else:
+            #***create list of 2 elemets - [text of element ,nearest outer element with markup css class attribute]
+            textElement.append(element.text)
+            textElement.append(markupedElements.get(element))
+            #***append above list to list of lists
+            textElements.append(textElement)
     #***recursive iterate over child elements
     for childElement in element:
         iterateTextElements(childElement,textElements,markupedElements)
         textElement=[]
         if childElement.tail != None:
-            #***create list of 2 elemets - [tail of element ,nearest outer element with markup css class attribute]
-            textElement.append(childElement.tail)
-            textElement.append(markupedElements.get(element))
-            #***append above list to list of lists
-            textElements.append(textElement)
+            if "&clubs" in  childElement.tail:
+                #***create list of 2 elemets - [tail of element ,nearest outer element with markup css class attribute]
+                textElement.append(re.sub("&clubs","",childElement.tail))
+                textElement.append(markupedElements.get(element))
+                #***append above list to list of lists
+                textElements.append(textElement)
+                textElement=[]
+                textElement.append("\n")
+                textElement.append(None)
+                textElements.append(textElement)
+                childElement.tail= re.sub("&clubs","",childElement.tail)
+            else:
+                #***create list of 2 elemets - [tail of element ,nearest outer element with markup css class attribute]
+                textElement.append(childElement.tail)
+                textElement.append(markupedElements.get(element))
+                #***append above list to list of lists
+                textElements.append(textElement)
 
 textElements=[]#***list of lists where each list contain text or tail in the order as in the parsed document
 iterateTextElements(body,textElements,markupedElements)
@@ -130,13 +155,14 @@ for element in textElements:
         r.text=element[0]
         r.length=len(element[0])
         r.position=position
-        position+=len(element[0])
+        position+=len(re.sub("\n","",element[0]))
         r.markupStyleName=classStyleMap.get(element[1].attrib["class"])
         r.markupStyleID=styleList[r.markupStyleName]
         r.markupCSSClassName=element[1].attrib["class"]
         r.pathToElementWithCSSMarkup=doc_tree.getpath(element[1])
         replacements.append(r)
-    position+=len(element[0])
+    else:
+        position+=len(re.sub("\n","",element[0]))
 #******* step 7: create output XML file with replacemtnts
 def createXMLWithReplacements(replacements):
     root = etree.XML('<fdo_objects><document url="" di="" bi="" date=""><facts></facts></document></fdo_objects>')
