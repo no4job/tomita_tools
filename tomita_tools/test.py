@@ -6,11 +6,14 @@ import re
 from tomita_tools import Fragments
 from io import StringIO
 from datetime import datetime
+import time
+#from datetime import datetime
 
-
+start_time=datetime.now()
+print("Start processing: "+start_time.strftime("%d.%m.%Y %H:%M:%S.%f"))
 try:
     from lxml import etree
-    print("running with lxml.etree")
+    #print("running with lxml.etree")
 except ImportError:
  pass
 
@@ -23,8 +26,9 @@ with io.open(file="StylesList.txt", encoding="cp1251",mode="rt") as f:
         styleList[s.split(",")[0]]=s.split(",")[1]
 #******* map markup css class names and markup style names in html file
 s=""
-inputFileName = "Greka_marked.htm"
+#inputFileName = "Greka_marked.htm"
 #inputFileName = "test.htm"
+inputFileName = "Truba_markup.htm"
 with open(inputFileName, "r") as f:
     s=f.read()
 styleClassMap={}#***dictionary {markup style name, markup css class name}
@@ -63,7 +67,7 @@ parser = etree.HTMLParser()
 doc_tree = etree.parse(StringIO(s),parser)#parse string cleaned from \n as io stream
 root = doc_tree.getroot()
 body = doc_tree.find('body')
-print (etree.tostring(body, pretty_print=True))
+#print (etree.tostring(body, pretty_print=True))
 #******* step 3: create string with search pattern from css markup class names
 cssMarkupClassNamePattern=""
 for className in styleClassMap:
@@ -91,6 +95,7 @@ for elementWithMarkupCSSClass in elementsWithMarkupCSSClass:
 #  [text or tail, nearest outer element with markup css class attribute]
 #  texts/tails ordered as in the parsed document
 def iterateTextElements(element,textElements,markupedElements):
+    #print(element.tag+"\n")
     textElement=[]
     if element.text != None:
         if "&clubs" in  element.text:
@@ -149,20 +154,31 @@ with open("out_text.txt", "w") as f:
 replacements=[]
 length=0
 position = 1
+#print (len("\n"))
+last_element = None
 for element in textElements:
-    if element[1] != None:
+    if element[1] != None and element[1] is not last_element:
         r=Fragments.ManualReplacement()
         r.text=element[0]
-        r.length=len(element[0])
-        r.position=position
-        position+=len(re.sub("\n","",element[0]))
+        #r.length=len(element[0])
+        r.length=len(re.sub("\n","",element[0]))+len(re.findall("\n",element[0]))*2
+        r.position=position-1
+        #position+=len(re.sub("\n","",element[0]))
+        position+=r.length
         r.markupStyleName=classStyleMap.get(element[1].attrib["class"])
         r.markupStyleID=styleList[r.markupStyleName]
         r.markupCSSClassName=element[1].attrib["class"]
         r.pathToElementWithCSSMarkup=doc_tree.getpath(element[1])
         replacements.append(r)
+    elif element[1] != None and element[1] is last_element:
+        replacements[-1].text+=element[0]
+        delta= len(re.sub("\n","",element[0]))+len(re.findall("\n",element[0]))*2
+        replacements[-1].length+=delta
+        position+=delta
     else:
-        position+=len(re.sub("\n","",element[0]))
+        #position+=len(re.sub("\n","",element[0]))
+        position+=len(re.sub("\n","",element[0]))+len(re.findall("\n",element[0]))*2
+    last_element = element[1]
 #******* step 7: create output XML file with replacemtnts
 def createXMLWithReplacements(replacements):
     root = etree.XML('<fdo_objects><document url="" di="" bi="" date=""><facts></facts></document></fdo_objects>')
@@ -181,5 +197,10 @@ with open("out_xml.xml", "w") as f:
     s= createXMLWithReplacements(replacements)
     f.write(s)
 
+end_time=datetime.now()
+print("End processing: "+end_time.strftime("%d.%m.%Y %H:%M:%S.%f"))
+duration = end_time-start_time;
+duration_str = "%d.%d" % (duration.seconds, duration.microseconds / 1000)
+print("Duration: "+duration_str+"s" )
 exit(0)
 
