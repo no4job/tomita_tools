@@ -1,16 +1,17 @@
 #coding windows-1251
 __author__ = 'mdu'
-import io
-import re
-import operator
-from tomita_tools import Fragments
-from io import StringIO
-from datetime import datetime
+#import io
+#import re
+#import operator
+#from tomita_tools import Fragments
+import codecs
+#from io import StringIO
+#from datetime import datetime
 try:
     from lxml import etree
 except ImportError:
     print("lxml import error")
-    exit(1)
+    raise
 class ParametersForCompare():
     def __init__(self, **kwargs):
         #absolute or relative path to input reference XML markup file
@@ -88,7 +89,8 @@ def compare(parameters: ParametersForCompare)-> ParametersForCompare:
             source="Uknown: "
         s=s+source+"(pos= "+str(diff.position)+", len= "+str(diff.length)+"): "
         s=s+diff.text+"\n"
-    with open(parameters.outputComparisonResults, "w") as f:
+    #with open(parameters.outputComparisonResults, "w") as f:
+    with codecs.open(parameters.outputComparisonResults, "w", "windows-1251") as f:
         f.write(s)
     return
 

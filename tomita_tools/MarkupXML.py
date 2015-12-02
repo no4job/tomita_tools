@@ -1,9 +1,18 @@
 #coding windows-1251
 __author__ = 'mdu'
 #import os
+from copy import deepcopy
 import io
 import re
-from tomita_tools import Fragments
+try:
+    import Fragments
+except ImportError:
+    try:
+       from tomita_tools import Fragments
+    except:
+        raise
+
+#from tomita_tools import Fragments
 from io import StringIO
 from datetime import datetime
 
@@ -12,7 +21,7 @@ try:
     from lxml import etree
 except ImportError:
  print("lxml import error")
- exit(1)
+ raise
 class ParametersForMarkup():
     def __init__(self, **kwargs):
         #absolute or relative path to input markuped html file
@@ -119,10 +128,10 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
             classStyleMap[className[0]]= style
     #print(styleClassMap)
     #******* map text element and parent markup css class
-    #******* step 1: remove \n from html
+    #******* step 1: clear html  remove \n e.c.t.
     with open(parameters.inputMarkupedHTMLFile, "r") as f:
         s=f.read()
-    #*** special case: \n inside tag replcacing with " "
+    #*** special case 1: remove \n inside tag replcacing with " "
         while True:
             tagBreaks=re.findall("(<[^<^>]*)([\n])([^<^>]*>)",s)
             if len(tagBreaks)== 0:
@@ -130,7 +139,16 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
             for tagBreak in tagBreaks:
                 searchPattern = tagBreak[0]+tagBreak[1]+tagBreak[2]
                 s=s.replace(searchPattern,tagBreak[0]+" "+tagBreak[2])
-    #*** common case: \n between tag replcacing with ""
+    #*** special case 2: remove \n inside text elements replcacing with " "
+        while True:
+            tagBreaks=re.findall("(>[^<^>]*)([\n])([^<^>]*<)",s)
+            if len(tagBreaks)== 0:
+                break
+            for tagBreak in tagBreaks:
+                searchPattern = tagBreak[0]+tagBreak[1]+tagBreak[2]
+                s=s.replace(searchPattern,tagBreak[0]+" "+tagBreak[2])
+
+    #*** common case: remove \n between tag replcacing with ""
         #print (s)
         s=re.sub("[\n]+","",s)
         s=re.sub(" </p>","&clubs</p>",s)
@@ -161,7 +179,37 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
         for element in elementWithMarkupCSSClass.xpath("descendant-or-self::*"):
             markupedElements[element]=elementWithMarkupCSSClass
             #markupedElements[element]=elementWithMarkupCSSClass.attrib["class"]
-    #exit(0)
+
+    #*** merge splited styles(two neigbor elements with same markup css class with no symbol between)
+    elementsForDelete=[]
+    for elementWithMarkupCSSClass in elementsWithMarkupCSSClass:
+        nextElement = elementWithMarkupCSSClass
+        while True:
+            nextElement = nextElement.getnext()
+            #print(nextElement)
+            if nextElement!=None and "class" in nextElement.attrib and \
+                    elementWithMarkupCSSClass.attrib["class"]== nextElement.attrib["class"] \
+                    and elementWithMarkupCSSClass.tail == None and  "@@@x@@@" not in elementWithMarkupCSSClass.attrib \
+                    and  "@@@x@@@" not in nextElement.attrib:
+                nextElement.attrib["@@@x@@@@"]="1"
+                for childElement in nextElement:
+                    if elementWithMarkupCSSClass[-1].tail != None and nextElement.text != None:
+                        elementWithMarkupCSSClass[-1].tail+=nextElement.text
+                    if elementWithMarkupCSSClass[-1].tail == None and nextElement.text != None:
+                        elementWithMarkupCSSClass[-1].tail=nextElement.text
+                    elementWithMarkupCSSClass.append(deepcopy(childElement))
+                    elementsForDelete.append(nextElement)
+                        #print(nextElement)
+                #print(etree.tostring(nextElement))
+                #print(etree.tostring(elementWithMarkupCSSClass))
+            else:
+                break
+
+ #   print (etree.tostring(body))
+  #  for element in elementsForDelete:
+   #     elementsWithMarkupCSSClass.remove(element)
+
+        #exit(0)
 
 
     #******* step 5: extract text  from markuped elements and map them with css markup elements
@@ -229,8 +277,8 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
 
 if __name__ == '__main__':
     p =  ParametersForMarkup()
-    p.inputMarkupedHTMLFile = "Truba_markup.htm"
-    p.outputTextFile = "out_text.txt"
-    p.outputXMLFile = "out_xml.xml"
+    p.inputMarkupedHTMLFile = "C:\\tomita_project\\Address\\input\\test_0068.htm"
+    p.outputTextFile = "C:\\tomita_project\\Address\\input\\test_0068.txt"
+    p.outputXMLFile = "C:\\tomita_project\\Address\\input\\test_0068.xml"
     markup(p)
     exit(0)

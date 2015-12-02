@@ -1,8 +1,25 @@
 #coding windows-1251
 __author__ = 'mdu'
 import argparse
-from tomita_tools import MarkupXML
-from tomita_tools import CompareXML
+#from tomita_tools import MarkupXML
+try:
+    import MarkupXML
+except ImportError:
+    try:
+        from tomita_tools import MarkupXML
+    except:
+        raise
+
+#from tomita_tools import CompareXML
+try:
+    import CompareXML
+except ImportError:
+    try:
+        from tomita_tools import CompareXML
+    except:
+        raise
+
+
 
 def markupWithArgs (args):
     #output = "markuped file:{0}\noutput text file: {1}\noutput xml file: {2}"
