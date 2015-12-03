@@ -1,7 +1,11 @@
 #coding windows-1251
 __author__ = 'mdu'
 import argparse
+from common_config import *
 #from tomita_tools import MarkupXML
+import MarkupXML
+import CompareXML
+'''
 try:
     import MarkupXML
 except ImportError:
@@ -18,7 +22,7 @@ except ImportError:
         from tomita_tools import CompareXML
     except:
         raise
-
+'''
 
 
 def markupWithArgs (args):
@@ -38,7 +42,7 @@ def compareWithArgs(args):
     p = CompareXML.ParametersForCompare()
     p.inputReferenceXMLMarkupFile = args.referenceXMLFile
     p.inputComparedXMLMarkupFile = args.comparedXMLfile
-    p.outputComparisonResults = args.comparisonOutputFile
+    p.outputComparisonResultsFile = args.comparisonOutputFile
     CompareXML.compare(p)
 
 parser = argparse.ArgumentParser()

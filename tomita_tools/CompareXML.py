@@ -5,8 +5,10 @@ __author__ = 'mdu'
 #import operator
 #from tomita_tools import Fragments
 import codecs
+import os.path
 #from io import StringIO
 #from datetime import datetime
+from common_config import *
 try:
     from lxml import etree
 except ImportError:
@@ -16,14 +18,21 @@ class ParametersForCompare():
     def __init__(self, **kwargs):
         #absolute or relative path to input reference XML markup file
         self.inputReferenceXMLMarkupFile = kwargs.get('INPUT_REFERENCE_XML_MARKUP_FILE','')
-        #absolute or relative path to input reference XML markup file encoding
-        self.inputReferenceXMLMarkupFileEncoding = kwargs.get('INPUT_REFERENCE_XML_MARKUP_FILE_ENCODING','')
+        #input reference XML markup file encoding
+        self.inputReferenceXMLMarkupFileEncoding = kwargs.get('INPUT_REFERENCE_XML_MARKUP_FILE_ENCODING',\
+                                                              DEFAULT_INPUT_REFERENCE_XML_FILE_ENCODING)
         #absolute or relative path to input compared XML markup file
-        self.inputComparedXMLMarkupFile = kwargs.get('INPUT_COMPARED_XML_MARKUP_FILE','cp1251')
-        #absolute or relative path to input compared XML markup file encoding
-        self.inputComparedXMLMarkupFileEncoding = kwargs.get('INPUT_COMPARED_XML_MARKUP_FILE_ENCODING','cp1251')
+        self.inputComparedXMLMarkupFile = kwargs.get('INPUT_COMPARED_XML_MARKUP_FILE',\
+                                                     '')
+        #input compared XML markup file encoding
+        self.inputComparedXMLMarkupFileEncoding = kwargs.get('INPUT_COMPARED_XML_MARKUP_FILE_ENCODING', \
+                                                             DEFAULT_INPUT_COMPARED_XML_FILE_ENCODING)
         #absolute or relative path to output file with comparison results
-        self.outputComparisonResults = kwargs.get('OUTPUT_COMPARISON_RESULTS','cp1251')
+        self.outputComparisonResultsFile = kwargs.get('OUTPUT_COMPARISON_RESULTS','')
+
+        #aoutput file with comparison results
+        self.outputComparisonResultsFileEncoding = kwargs.get('OUTPUT_COMPARISON_RESULTS',\
+                                                              DEFAULT_OUTPUT_COMPARISON_TXT_FILE_ENCODING)
 
 class difElement():
     def __init__(self, **kwargs):
@@ -33,12 +42,24 @@ class difElement():
         self.source = kwargs.get('SOURCE','')
 #*********************************************************************************
 
-
+def getPathFromParrentLevel(inputPath,level):
+    path=""
+    up=0
+    while up<=level:
+        head, tail = os.path.split(inputPath)
+        inputPath = head
+        if up!=0:
+            path = os.path.join(tail,path)
+        else:
+            path=tail
+        up+=1
+    return path
 
 def compare(parameters: ParametersForCompare)-> ParametersForCompare:
     s=""
     #create list reference replacements
     referenceReplacements = {}
+    #**parse according to encoding in XML declaration
     referenceRoot = etree.parse(parameters.inputReferenceXMLMarkupFile)
     referenceReplacementsElements= referenceRoot.xpath(".//facts/descendant-or-self::*[@pos]")
 
@@ -54,17 +75,22 @@ def compare(parameters: ParametersForCompare)-> ParametersForCompare:
 
     #create list compared replacements
     comparedReplacements = {}
+    #**parse according to encoding in XML declaration
     comparedRoot = etree.parse(parameters.inputComparedXMLMarkupFile)
     comparedReplacementsElements= comparedRoot.xpath(".//facts/descendant-or-self::*[@pos]")
-    for replacement in comparedReplacementsElements:
-        replacementFragment = difElement()
-        replacementFragment.text = replacement.find("ReplacementText").attrib["val"]
-        replacementFragment.position = replacement.attrib["pos"]
-        replacementFragment.length = replacement.attrib["len"]
-        replacementFragment.source = "c"
-        key = str(replacementFragment.position).zfill(10)+";"+str(replacementFragment.length).zfill(10)
-        comparedReplacements[key]=replacementFragment
-
+    try:
+        for replacement in comparedReplacementsElements:
+            replacementFragment = difElement()
+            replacementFragment.text = replacement.find("ReplacementText").attrib["val"]
+            replacementFragment.position = replacement.attrib["pos"]
+            replacementFragment.length = replacement.attrib["len"]
+            replacementFragment.source = "c"
+            key = str(replacementFragment.position).zfill(10)+";"+str(replacementFragment.length).zfill(10)
+            comparedReplacements[key]=replacementFragment
+    except AttributeError:
+        print("No mandatory fields in parser output XML file, check parser facts extracting  settings")
+        exit(1)
+        #raise
     #create list of unmatched replacements
     diffList={}
     for key in referenceReplacements:
@@ -76,28 +102,46 @@ def compare(parameters: ParametersForCompare)-> ParametersForCompare:
             diffList[key.split(";")[0]+"1"+key.split(";")[1]]=comparedReplacements[key]
 
     s=""
-
+    referenceUnmatched=0
+    comparedUnmatched=0
+    unknown=0
     diffListKeys= list(diffList.keys())
     diffListKeys.sort()
     for difListKey in   diffListKeys:
         diff=diffList[difListKey]
         if diff.source == "r":
             source="Reference"
+            referenceUnmatched+=1
         elif diff.source == "c":
             source="Compared: "
+            comparedUnmatched+=1
         else:
             source="Uknown: "
+            unknown+=1
         s=s+source+"(pos= "+str(diff.position)+", len= "+str(diff.length)+"): "
         s=s+diff.text+"\n"
+
+    print("Refference file: "+ getPathFromParrentLevel(parameters.inputReferenceXMLMarkupFile,2))
+    print("Compared file: "+ getPathFromParrentLevel(parameters.inputComparedXMLMarkupFile,2)+"\n")
+    print("Reference file replacements number:"+str(len(referenceReplacementsElements))+", unmatched: "+str(referenceUnmatched))
+    print("Compared  file replacements number:"+str(len(comparedReplacementsElements))+", unmatched: "+str(comparedUnmatched))
+
+    s= s+"\n"+"Reference file: "+ getPathFromParrentLevel(parameters.inputReferenceXMLMarkupFile,2)
+    s= s+"\n"+"Compared  file: "+ getPathFromParrentLevel(parameters.inputComparedXMLMarkupFile,2)
+    s= s+"\n"+"Reference file replacements number:"+str(len(referenceReplacementsElements))+", unmatched: "+str(referenceUnmatched)
+    s= s+"\n"+"Compared  file replacements number:"+str(len(comparedReplacementsElements))+", unmatched: "+str(comparedUnmatched)
+    #print(os.path.basename(parameters.inputReferenceXMLMarkupFile))
+    #os.path.split
+
     #with open(parameters.outputComparisonResults, "w") as f:
-    with codecs.open(parameters.outputComparisonResults, "w", "windows-1251") as f:
+    with codecs.open(parameters.outputComparisonResultsFile, encoding=parameters.outputComparisonResultsFileEncoding,mode="w") as f:
         f.write(s)
     return
 
 if __name__ == '__main__':
     p =  ParametersForCompare()
-    p.inputReferenceXMLMarkupFile = "out_xml_ref.xml"
-    p.inputComparedXMLMarkupFile = "out_xml_cmp.xml"
-    p.outputComparisonResults = "compare.txt"
+    p.inputReferenceXMLMarkupFile = "C:\\tomita_project\\Address_\\input\\test_0068_.xml"
+    p.inputComparedXMLMarkupFile = "C:\\tomita_project\\Address_\\output\\output.xml"
+    p.outputComparisonResultsFile = "C:\\tomita_project\\Address_\\output\\dif.test_0068_.txt"
     compare(p)
     exit(0)

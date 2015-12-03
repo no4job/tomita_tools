@@ -4,14 +4,17 @@ __author__ = 'mdu'
 from copy import deepcopy
 import io
 import re
+import Fragments
+from common_config import *
+'''
 try:
     import Fragments
 except ImportError:
     try:
-       from tomita_tools import Fragments
+        #from tomita_tools import Fragments
     except:
         raise
-
+'''
 #from tomita_tools import Fragments
 from io import StringIO
 from datetime import datetime
@@ -31,14 +34,14 @@ class ParametersForMarkup():
         #absolute or relative path to output xml file
         self.outputXMLFile = kwargs.get('OUTPUT_XML_FILE',"markuped_fragments.xml")
         #input file encoding
-        self.inputFileEncoding = kwargs.get('INPUT_FILE_ENCODING',"cp1251")
+        self.inputFileEncoding = kwargs.get('INPUT_FILE_ENCODING',DEFAULT_INPUT_HTML_FILE_ENCODING)
         #output text file encoding
-        self.outputTextFileEncoding = kwargs.get('OUTPUT_TEXT_FILE_ENCODING',"cp1251")
+        self.outputTextFileEncoding = kwargs.get('OUTPUT_TEXT_FILE_ENCODING',DEFAULT_OUTPUT_TXT_FILE_ENCODING)
         #output file encoding
-        self.outputXMLFileEncoding = kwargs.get('OUTPUT_XML_FILE_ENCODING',"cp1251")
+        self.outputXMLFileEncoding = kwargs.get('OUTPUT_XML_FILE_ENCODING',DEFAULT_OUTPUT_XML_FILE_ENCODING)
 #*********************************************************************************
 #***function return list of lists where each list contain:
-#  [text or tail, nearest outer element with markup css class attribute]
+#  [text or tail , nearest outer element with markup css class attribute]
 #  texts/tails ordered as in the parsed document
 def iterateTextElements(element,textElements,markupedElements):
     #print(element.tag+"\n")
@@ -59,6 +62,8 @@ def iterateTextElements(element,textElements,markupedElements):
             #***create list of 2 elemets - [text of element ,nearest outer element with markup css class attribute]
             textElement.append(element.text)
             textElement.append(markupedElements.get(element))
+            #if markupedElements.get(element)!=None and markupedElements.get(element).attrib["class"]== "WordSection1":
+            #    print (element)
             #***append above list to list of lists
             textElements.append(textElement)
     #***recursive iterate over child elements
@@ -84,14 +89,14 @@ def iterateTextElements(element,textElements,markupedElements):
                 #***append above list to list of lists
                 textElements.append(textElement)
 
-def createXMLWithReplacements(replacements):
+def createXMLWithReplacements(replacements,xmlEncoding):
     root = etree.XML('<fdo_objects><document url="" di="" bi="" date=""><facts></facts></document></fdo_objects>')
     root.set('date',datetime.now().strftime('%Y-%m-%d'))
     #facts = root.find("facts")
     facts = root.xpath("descendant-or-self::facts")[0]
     for replacement in replacements:
         addReplacementToXML(facts,replacement)
-    return etree.tostring(root, xml_declaration=True,encoding="cp1251").decode("cp1251")
+    return etree.tostring(root, xml_declaration=True,encoding=xmlEncoding).decode(xmlEncoding)
 
 def addReplacementToXML(facts,replacement):
     fact = etree.SubElement(facts, replacement.markupStyleID,pos=str(replacement.position), len=str(replacement.length))
@@ -104,7 +109,7 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
     print("Start processing: "+start_time.strftime("%d.%m.%Y %H:%M:%S.%f"))
     # ******* read word markup style names from config file
     styleList={} # list of lists [markup style name, marup style ID]
-    with io.open(file="StylesList.txt", encoding="cp1251",mode="rt") as f:
+    with io.open(file="StylesList.txt", encoding=DEFAULT_STYLE_LIST_FILE_ENCODING,mode="rt") as f:
         for s in f.read().splitlines():
             styleList[s.split(",")[0]]=s.split(",")[1]
     #******* map markup css class names and markup style names in html file
@@ -113,7 +118,7 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
     #inputFileName = "test.htm"
     #inputFileName = "Truba_markup.htm"
     #inputFileName = parameters.inputMarkupedHTMLFile
-    with open(parameters.inputMarkupedHTMLFile, "r") as f:
+    with open(parameters.inputMarkupedHTMLFile,encoding=parameters.inputFileEncoding, mode="r") as f:
         s=f.read()
     styleClassMap={}#***dictionary {markup style name, markup css class name}
     classStyleMap={}#***dictionary {markup css class name,markup style name}
@@ -129,8 +134,8 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
     #print(styleClassMap)
     #******* map text element and parent markup css class
     #******* step 1: clear html  remove \n e.c.t.
-    with open(parameters.inputMarkupedHTMLFile, "r") as f:
-        s=f.read()
+    #with open(parameters.inputMarkupedHTMLFile, "r") as f:
+    #    s=f.read()
     #*** special case 1: remove \n inside tag replcacing with " "
         while True:
             tagBreaks=re.findall("(<[^<^>]*)([\n])([^<^>]*>)",s)
@@ -166,6 +171,7 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
     for className in styleClassMap:
         cssMarkupClassNamePattern+=(styleClassMap[className]+"|")
     cssMarkupClassNamePattern=cssMarkupClassNamePattern[:-1]
+    cssMarkupClassNamePattern="^("+cssMarkupClassNamePattern+")$"
 
     #******* step 4: create  css markup dictionary {element, nearest outer element with markup css class attribute}
     elementsWithCSSClass=body.xpath("descendant-or-self::*[@class]")#list of all elements with css class attribute
@@ -173,12 +179,7 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
     for element in elementsWithCSSClass:
         if re.match(cssMarkupClassNamePattern,element.attrib["class"]):
             elementsWithMarkupCSSClass.append(element)
-    markupedElements={}#***dictionary {element, nearest outer element with markup css class attribute}
-    #markupedElement={}
-    for elementWithMarkupCSSClass in elementsWithMarkupCSSClass:
-        for element in elementWithMarkupCSSClass.xpath("descendant-or-self::*"):
-            markupedElements[element]=elementWithMarkupCSSClass
-            #markupedElements[element]=elementWithMarkupCSSClass.attrib["class"]
+
 
     #*** merge splited styles(two neigbor elements with same markup css class with no symbol between)
     elementsForDelete=[]
@@ -189,33 +190,52 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
             #print(nextElement)
             if nextElement!=None and "class" in nextElement.attrib and \
                     elementWithMarkupCSSClass.attrib["class"]== nextElement.attrib["class"] \
-                    and elementWithMarkupCSSClass.tail == None and  "@@@x@@@" not in elementWithMarkupCSSClass.attrib \
-                    and  "@@@x@@@" not in nextElement.attrib:
-                nextElement.attrib["@@@x@@@@"]="1"
+                    and elementWithMarkupCSSClass.tail == None and  "---x---" not in elementWithMarkupCSSClass.attrib \
+                    and  "---x---" not in nextElement.attrib:
+                nextElement.attrib["---x---"]="1"
                 for childElement in nextElement:
                     if elementWithMarkupCSSClass[-1].tail != None and nextElement.text != None:
                         elementWithMarkupCSSClass[-1].tail+=nextElement.text
                     if elementWithMarkupCSSClass[-1].tail == None and nextElement.text != None:
                         elementWithMarkupCSSClass[-1].tail=nextElement.text
                     elementWithMarkupCSSClass.append(deepcopy(childElement))
+                    #print(etree.tostring(childElement, encoding='unicode',method='html', pretty_print=True))
                     elementsForDelete.append(nextElement)
                         #print(nextElement)
                 #print(etree.tostring(nextElement))
                 #print(etree.tostring(elementWithMarkupCSSClass))
+                if nextElement.tail != None:
+                    break
             else:
                 break
 
- #   print (etree.tostring(body))
-  #  for element in elementsForDelete:
-   #     elementsWithMarkupCSSClass.remove(element)
-
-        #exit(0)
-
+    #print (etree.tostring(body))
+    for element in elementsForDelete:
+        element.getparent().remove(element)
+    #elementsWithCSSClass=body.xpath("descendant-or-self::*[@---x--- ]")
+    #******* rebuild  css markup dictionary after merging}
+    elementsWithCSSClass =[]
+    elementsWithCSSClass=body.xpath("descendant-or-self::*[@class]")#list of all elements with css class attribute
+    elementsWithMarkupCSSClass=[]#***list of elements with markup css class attribute
+    for element in elementsWithCSSClass:
+        if re.match(cssMarkupClassNamePattern,element.attrib["class"]):
+        #if re.match("^("+cssMarkupClassNamePattern+")$",element.attrib["class"]):
+            #print(element.attrib["class"])
+            elementsWithMarkupCSSClass.append(element)
+    markupedElements={}#***dictionary {element, nearest outer element with markup css class attribute}
+    #markupedElement={}
+    for elementWithMarkupCSSClass in elementsWithMarkupCSSClass:
+        #print(etree.tostring(elementWithMarkupCSSClass, encoding='unicode',method='html', pretty_print=True))
+        for element in elementWithMarkupCSSClass.xpath("descendant-or-self::*"):
+            markupedElements[element]=elementWithMarkupCSSClass
+            #markupedElements[element]=elementWithMarkupCSSClass.attrib["class"]
 
     #******* step 5: extract text  from markuped elements and map them with css markup elements
 
 
-
+    #for element in  markupedElements:
+    #if markupedElements.get(element)!=None and markupedElements.get(element).attrib["class"]== "WordSection1":
+    #    print (element.attrib["class"])
     textElements=[]#***list of lists where each list contain text or tail in the order as in the parsed document
     iterateTextElements(body,textElements,markupedElements)
 
@@ -224,7 +244,7 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
     for element in textElements:
         s=s+element[0]
     #with open("out_text.txt", "w") as f:
-    with open(parameters.outputTextFile, "w") as f:
+    with open(parameters.outputTextFile,encoding=parameters.outputTextFileEncoding,mode= "w") as f:
         f.write(s)
 
 
@@ -236,6 +256,8 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
     #print (len("\n"))
     last_element = None
     for element in textElements:
+    #    if element[1] != None and element[1].attrib["class"]== "WordSection1":
+    #        print (element)
         if element[1] != None and element[1] is not last_element:
             r=Fragments.ManualReplacement()
             r.text=element[0]
@@ -244,6 +266,7 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
             r.position=position-1
             #position+=len(re.sub("\n","",element[0]))
             position+=r.length
+            #print(element[1].attrib["class"])
             r.markupStyleName=classStyleMap.get(element[1].attrib["class"])
             r.markupStyleID=styleList[r.markupStyleName]
             r.markupCSSClassName=element[1].attrib["class"]
@@ -262,8 +285,8 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
 
 
     #with open("out_xml.xml", "w") as f:
-    with open(parameters.outputXMLFile, "w") as f:
-        s= createXMLWithReplacements(replacements)
+    with open(parameters.outputXMLFile, encoding=parameters.outputXMLFileEncoding,mode="w") as f:
+        s= createXMLWithReplacements(replacements,parameters.outputXMLFileEncoding)
         f.write(s)
 
     end_time=datetime.now()
@@ -271,14 +294,15 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
     duration = end_time-start_time;
     duration_str = "%d.%d" % (duration.seconds, duration.microseconds / 1000)
     print("Duration: "+duration_str+"s" )
+    print("Markups found: "+str(len(replacements)) )
     return
     #exit(0)
 
 
 if __name__ == '__main__':
     p =  ParametersForMarkup()
-    p.inputMarkupedHTMLFile = "C:\\tomita_project\\Address\\input\\test_0068.htm"
-    p.outputTextFile = "C:\\tomita_project\\Address\\input\\test_0068.txt"
-    p.outputXMLFile = "C:\\tomita_project\\Address\\input\\test_0068.xml"
+    p.inputMarkupedHTMLFile = "C:\\tomita_project\\Address\\input\\test_0068_.htm"
+    p.outputTextFile = "C:\\tomita_project\\Address\\input\\test_0068_.txt"
+    p.outputXMLFile = "C:\\tomita_project\\Address\\input\\test_0068_.xml"
     markup(p)
     exit(0)
