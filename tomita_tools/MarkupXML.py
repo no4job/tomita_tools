@@ -196,7 +196,7 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
                 for childElement in nextElement:
                     if elementWithMarkupCSSClass[-1].tail != None and nextElement.text != None:
                         elementWithMarkupCSSClass[-1].tail+=nextElement.text
-                    if elementWithMarkupCSSClass[-1].tail == None and nextElement.text != None:
+                    elif elementWithMarkupCSSClass[-1].tail == None and nextElement.text != None:
                         elementWithMarkupCSSClass[-1].tail=nextElement.text
                     elementWithMarkupCSSClass.append(deepcopy(childElement))
                     #print(etree.tostring(childElement, encoding='unicode',method='html', pretty_print=True))
@@ -204,14 +204,16 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
                         #print(nextElement)
                 #print(etree.tostring(nextElement))
                 #print(etree.tostring(elementWithMarkupCSSClass))
+
                 if nextElement.tail != None:
+                    elementWithMarkupCSSClass.tail=nextElement.tail
                     break
             else:
                 break
-
-    #print (etree.tostring(body))
+    #print(etree.tostring(body, encoding='unicode',method='html', pretty_print=True))
     for element in elementsForDelete:
         element.getparent().remove(element)
+    #print(etree.tostring(body, encoding='unicode',method='html', pretty_print=True))
     #elementsWithCSSClass=body.xpath("descendant-or-self::*[@---x--- ]")
     #******* rebuild  css markup dictionary after merging}
     elementsWithCSSClass =[]
@@ -301,8 +303,8 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
 
 if __name__ == '__main__':
     p =  ParametersForMarkup()
-    p.inputMarkupedHTMLFile = "C:\\tomita_project\\Address\\input\\test_0068_.htm"
-    p.outputTextFile = "C:\\tomita_project\\Address\\input\\test_0068_.txt"
-    p.outputXMLFile = "C:\\tomita_project\\Address\\input\\test_0068_.xml"
+    p.inputMarkupedHTMLFile = "C:\\tomita_project\\Address\\input\\test_0068.htm"
+    p.outputTextFile = "C:\\tomita_project\\Address\\input\\test_0068.txt"
+    p.outputXMLFile = "C:\\tomita_project\\Address\\input\\test_0068.xml"
     markup(p)
     exit(0)
