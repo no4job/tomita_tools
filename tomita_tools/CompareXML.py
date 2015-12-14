@@ -75,16 +75,16 @@ def compare(parameters: ParametersForCompare)-> ParametersForCompare:
     #  for compatibility with tomita XML output
         trimFlag=0
         if parameters.trimQuotes :
-            if replacementFragment.text[0] in ('"',"'","«",'“','”'):
+            if replacementFragment.text[0] in ('"',"'","«",'“','”',"‘","’"):
                 trimFlag=1
                 replacementFragment.text = replacementFragment.text[1:]
                 replacementFragment.position = str(int(replacementFragment.position) + 1)
                 replacementFragment.length = str(int(replacementFragment.length) - 1)
-            if replacementFragment.text[-1:] in ('"',"'","»",'“','”'):
+            if replacementFragment.text[-1:] in ('"',"'","»",'“','”',"‘","’"):
                 trimFlag=1
                 replacementFragment.text=replacementFragment.text[:-1]
                 replacementFragment.length = str(int(replacementFragment.length) - 1)
-            for chr in ('"''“',"'","«","»"):
+            for chr in ('"',"'","«","»",'“','”',"‘","’"):
                 if chr in replacementFragment.text:
                     trimFlag=1
                 replacementFragment.text=replacementFragment.text.replace(chr," ")
