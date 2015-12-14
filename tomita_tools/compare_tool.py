@@ -43,6 +43,8 @@ def compareWithArgs(args):
     p.inputReferenceXMLMarkupFile = args.referenceXMLFile
     p.inputComparedXMLMarkupFile = args.comparedXMLfile
     p.outputComparisonResultsFile = args.comparisonOutputFile
+    if args.ntq:
+        p.trimQuotes = 0
     CompareXML.compare(p)
 
 parser = argparse.ArgumentParser()
@@ -61,6 +63,8 @@ compare_parser.add_argument('referenceXMLFile', help='absolute or relative path 
 compare_parser.add_argument('comparedXMLfile', help='absolute or relative path to compared xml file with replacements')
 compare_parser.add_argument('comparisonOutputFile', help='absolute or relative path to output file with comparison '
                                               'results')
+#compare_parser.add_argument('--tq', action='store_true', help='Enable trim edge quotes and replace non-edge quotes to spaces in reference replacements before comparison')
+compare_parser.add_argument('--ntq', action='store_true', help='Disable trim edge quotes and replace non-edge quotes to spaces in reference replacements before comparison')
 compare_parser.set_defaults(func=compareWithArgs)
 
 if __name__ == '__main__':

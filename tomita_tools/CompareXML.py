@@ -30,10 +30,11 @@ class ParametersForCompare():
         #absolute or relative path to output file with comparison results
         self.outputComparisonResultsFile = kwargs.get('OUTPUT_COMPARISON_RESULTS','')
 
-        #aoutput file with comparison results
+        #output file with comparison results
         self.outputComparisonResultsFileEncoding = kwargs.get('OUTPUT_COMPARISON_RESULTS',\
                                                               DEFAULT_OUTPUT_COMPARISON_TXT_FILE_ENCODING)
-
+        #to trim or not to trim quotes in reference markup text
+        self.trimQuotes = kwargs.get('TRIM_QUOTES',1)
 class difElement():
     def __init__(self, **kwargs):
         self.text = kwargs.get('TEXT','')
@@ -57,6 +58,7 @@ def getPathFromParrentLevel(inputPath,level):
 
 def compare(parameters: ParametersForCompare)-> ParametersForCompare:
     s=""
+    trimCount=0;
     #create list reference replacements
     referenceReplacements = {}
     #**parse according to encoding in XML declaration
@@ -69,6 +71,24 @@ def compare(parameters: ParametersForCompare)-> ParametersForCompare:
         replacementFragment.position = replacement.attrib["pos"]
         replacementFragment.length = replacement.attrib["len"]
         replacementFragment.source = "r"
+    #special case: trim leading and trailing quotes in reference replacements
+    #  for compatibility with tomita XML output
+        trimFlag=0
+        if parameters.trimQuotes :
+            if replacementFragment.text[0] in ('"',"'","«",'“','”'):
+                trimFlag=1
+                replacementFragment.text = replacementFragment.text[1:]
+                replacementFragment.position = str(int(replacementFragment.position) + 1)
+                replacementFragment.length = str(int(replacementFragment.length) - 1)
+            if replacementFragment.text[-1:] in ('"',"'","»",'“','”'):
+                trimFlag=1
+                replacementFragment.text=replacementFragment.text[:-1]
+                replacementFragment.length = str(int(replacementFragment.length) - 1)
+            for chr in ('"''“',"'","«","»"):
+                if chr in replacementFragment.text:
+                    trimFlag=1
+                replacementFragment.text=replacementFragment.text.replace(chr," ")
+        trimCount+=trimFlag
         key = str(replacementFragment.position).zfill(10)+";"+str(replacementFragment.length).zfill(10)
         referenceReplacements[key]=replacementFragment
 
@@ -125,11 +145,15 @@ def compare(parameters: ParametersForCompare)-> ParametersForCompare:
     print("Compared file: "+ getPathFromParrentLevel(parameters.inputComparedXMLMarkupFile,2)+"\n")
     print("Reference file replacements number:"+str(len(referenceReplacementsElements))+", unmatched: "+str(referenceUnmatched))
     print("Compared  file replacements number:"+str(len(comparedReplacementsElements))+", unmatched: "+str(comparedUnmatched))
-
+    if parameters.trimQuotes:
+        print("Quotes trim enabled (in reference), trimmed: "+str(trimCount))
     s= s+"\n"+"Reference file: "+ getPathFromParrentLevel(parameters.inputReferenceXMLMarkupFile,2)
     s= s+"\n"+"Compared  file: "+ getPathFromParrentLevel(parameters.inputComparedXMLMarkupFile,2)
     s= s+"\n"+"Reference file replacements number:"+str(len(referenceReplacementsElements))+", unmatched: "+str(referenceUnmatched)
     s= s+"\n"+"Compared  file replacements number:"+str(len(comparedReplacementsElements))+", unmatched: "+str(comparedUnmatched)
+    if parameters.trimQuotes:
+        s+"\n"+"Quotes trim enabled (in reference), trimmed: "+str(trimCount)
+
     #print(os.path.basename(parameters.inputReferenceXMLMarkupFile))
     #os.path.split
 
@@ -140,8 +164,8 @@ def compare(parameters: ParametersForCompare)-> ParametersForCompare:
 
 if __name__ == '__main__':
     p =  ParametersForCompare()
-    p.inputReferenceXMLMarkupFile = "C:\\tomita_project\\Address_\\input\\test_0068_.xml"
-    p.inputComparedXMLMarkupFile = "C:\\tomita_project\\Address_\\output\\output.xml"
-    p.outputComparisonResultsFile = "C:\\tomita_project\\Address_\\output\\dif.test_0068_.txt"
+    p.inputReferenceXMLMarkupFile = "C:\\tomita_project\\Address\\input\\test_0068.xml"
+    p.inputComparedXMLMarkupFile = "C:\\tomita_project\\Address\\output\\output.test_0068.xml"
+    p.outputComparisonResultsFile = "C:\\tomita_project\\Address\\output\\dif.test_0068_.txt"
     compare(p)
     exit(0)
