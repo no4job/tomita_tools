@@ -152,7 +152,7 @@ def compare(parameters: ParametersForCompare)-> ParametersForCompare:
     s= s+"\n"+"Reference file replacements number:"+str(len(referenceReplacementsElements))+", unmatched: "+str(referenceUnmatched)
     s= s+"\n"+"Compared  file replacements number:"+str(len(comparedReplacementsElements))+", unmatched: "+str(comparedUnmatched)
     if parameters.trimQuotes:
-        s+"\n"+"Quotes trim enabled (in reference), trimmed: "+str(trimCount)
+        s= s+"\n"+"Quotes trim enabled (in reference), trimmed: "+str(trimCount)
 
     #print(os.path.basename(parameters.inputReferenceXMLMarkupFile))
     #os.path.split

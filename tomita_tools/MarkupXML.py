@@ -40,7 +40,7 @@ class ParametersForMarkup():
         #output file encoding
         self.outputXMLFileEncoding = kwargs.get('OUTPUT_XML_FILE_ENCODING',DEFAULT_OUTPUT_XML_FILE_ENCODING)
 #*********************************************************************************
-#***function return list of lists where each list contain:
+#***function return list of lists where each list contain 2 elements:
 #  [text or tail , nearest outer element with markup css class attribute]
 #  texts/tails ordered as in the parsed document
 def iterateTextElements(element,textElements,markupedElements):
