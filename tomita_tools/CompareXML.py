@@ -164,8 +164,8 @@ def compare(parameters: ParametersForCompare)-> ParametersForCompare:
 
 if __name__ == '__main__':
     p =  ParametersForCompare()
-    p.inputReferenceXMLMarkupFile = "C:\\tomita_project\\Address\\input\\test_0068.xml"
-    p.inputComparedXMLMarkupFile = "C:\\tomita_project\\Address\\output\\output.test_0068.xml"
-    p.outputComparisonResultsFile = "C:\\tomita_project\\Address\\output\\dif.test_0068_.txt"
+    p.inputReferenceXMLMarkupFile = "C:\\tomita_project\\Summ\\input\\text.xml"
+    p.inputComparedXMLMarkupFile = "C:\\tomita_project\\Summ\\output\\output.text.xml"
+    p.outputComparisonResultsFile = "C:\\tomita_project\\Summ\\output\\dif.text.txt"
     compare(p)
     exit(0)
