@@ -102,7 +102,7 @@ def addReplacementToXML(facts,replacement):
     fact = etree.SubElement(facts, replacement.markupStyleID,pos=str(replacement.position), len=str(replacement.length))
     replacementText = etree.SubElement(fact, 'ReplacementText',val = replacement.text)
 #******************************************************************************************
-
+#@profile
 def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
 
     start_time=datetime.now()
@@ -122,10 +122,13 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
         s=f.read()
     styleClassMap={}#***dictionary {markup style name, markup css class name}
     classStyleMap={}#***dictionary {markup css class name,markup style name}
+    #styleSection = re.findall('<\s*style\s*>.*<\-\-.*\-\->.*<\s*/\s*style\s*>', s,flags=re.DOTALL | re.IGNORECASE)[0]
+    styleSection = re.findall(r"<\s*style\s*>.*<\!--.*-->\s*<\s*/\s*style\s*>", s,flags=re.DOTALL | re.IGNORECASE)[0]
     for style in styleList:
         #className = re.findall('(\w+)[\s\n]*\{[^\{]*'+style[0].replace("/","\\\\/")+'\W*;', s,flags=re.DOTALL |
         # re.IGNORECASE)
-        className = re.findall('(\w+)[\s\n]*\{[^\{]*'+style.replace("/","\\\\/")+'\W*;', s,flags=re.DOTALL | re.IGNORECASE)
+        #className = re.findall('(\w+)[\s\n]*\{[^\{]*'+style.replace("/","\\\\/")+'\W*;', s,flags=re.DOTALL | re.IGNORECASE)
+        className = re.findall('(\w+)[\s\n]*\{[^\{]*'+style.replace("/","\\\\/")+'\W*;', styleSection,flags=re.DOTALL | re.IGNORECASE)
         #styleClassMap[style[0]]=className[0] if len(className)> 0 else ""
         styleClassMap[style]=className[0] if len(className)> 0 else ""
         if len(className)>0:
@@ -136,28 +139,33 @@ def markup(parameters: ParametersForMarkup)-> ParametersForMarkup:
     #******* step 1: clear html  remove \n e.c.t.
     #with open(parameters.inputMarkupedHTMLFile, "r") as f:
     #    s=f.read()
-    #*** special case 1: remove \n inside tag replcacing with " "
-        while True:
-            tagBreaks=re.findall("(<[^<^>]*)([\n])([^<^>]*>)",s)
-            if len(tagBreaks)== 0:
-                break
-            for tagBreak in tagBreaks:
-                searchPattern = tagBreak[0]+tagBreak[1]+tagBreak[2]
-                s=s.replace(searchPattern,tagBreak[0]+" "+tagBreak[2])
-    #*** special case 2: remove \n inside text elements replcacing with " "
-        while True:
-            tagBreaks=re.findall("(>[^<^>]*)([\n])([^<^>]*<)",s)
-            if len(tagBreaks)== 0:
-                break
-            for tagBreak in tagBreaks:
-                searchPattern = tagBreak[0]+tagBreak[1]+tagBreak[2]
-                s=s.replace(searchPattern,tagBreak[0]+" "+tagBreak[2])
 
-    #*** common case: remove \n between tag replcacing with ""
-        #print (s)
-        s=re.sub("[\n]+","",s)
-        s=re.sub(" </p>","&clubs</p>",s)
-    #    print (s)
+    #*** special case 1: remove \n inside tag replcacing with " "
+    searchPattern=re.compile("<[^<^>]*[\n][^<^>]*>")
+    s=re.sub(searchPattern,lambda m: m.group(0).replace("\n"," "),s)
+    # while True:
+    #     tagBreaks=re.findall("(<[^<^>]*)([\n])([^<^>]*>)",s)
+    #     if len(tagBreaks)== 0:
+    #         break
+    #     for tagBreak in tagBreaks:
+    #         searchPattern = tagBreak[0]+tagBreak[1]+tagBreak[2]
+    #         s=s.replace(searchPattern,tagBreak[0]+" "+tagBreak[2])
+#*** special case 2: remove \n inside text elements replcacing with " "
+    searchPattern=re.compile("(>[^<^>]*)([\n])([^<^>]*<)")
+    s=re.sub(searchPattern,lambda m: m.group(0).replace("\n"," "),s)
+    # while True:
+    #     tagBreaks=re.findall("(>[^<^>]*)([\n])([^<^>]*<)",s)
+    #     if len(tagBreaks)== 0:
+    #         break
+    #     for tagBreak in tagBreaks:
+    #         searchPattern = tagBreak[0]+tagBreak[1]+tagBreak[2]
+    #         s=s.replace(searchPattern,tagBreak[0]+" "+tagBreak[2])
+
+#*** common case: remove \n between tag replcacing with ""
+    #print (s)
+    s=re.sub("[\n]+","",s)
+    s=re.sub(" </p>","&clubs</p>",s)
+#    print (s)
 
     #******* step 2: get <body> element from clean string
     parser = etree.HTMLParser()
