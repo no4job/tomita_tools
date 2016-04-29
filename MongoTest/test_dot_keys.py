@@ -14,7 +14,7 @@ from Timer import *
 
 def get_model_element_(elem):
     modelElement=[]
-#*****************************
+    #*****************************
     modelElement.append(dict(parent_object=""))
     modelElement.append(dict(revision=""))
     modelElement.append(dict(model_revision=""))
@@ -24,7 +24,7 @@ def get_model_element_(elem):
     modelElement.append(dict(change_date=datetime.now()))
     modelElement.append(dict(archive="false"))
     modelElement.append(dict(deletede="false"))
-#***************************************************
+    #***************************************************
 
     modelElement.append(dict(name=next(iter(elem.xpath("./@ElementName")),"")))
     modelElement.append(dict(id=next(iter(elem.xpath("./@ElementId")),"")))
@@ -114,7 +114,7 @@ if __name__ == '__main__':
     #input_file='C:\\IdeaProjects\\hh_api_test\\MongoTest\\exp_types_formatted_few_elements.xml'
     #***input_file='exp_types_formatted_few_elements.xml'
     #input_file='C:\\Users\mdu\\Documents\\qpr_export\\exp.xml'
-    input_file='C:\\Users\ÐœÐ¸ÑˆÐ¸Ð½Ð”Ð®\\Documents\\qpr_export\\exp.xml'
+    input_file='C:\\Users\ÌèøèíÄÞ\\Documents\\qpr_export\\exp.xml'
     events = ("start", "end")
     context = etree.iterparse(input_file,events = events, tag=('{www.qpr.com}ModelElement'))
     count=0
@@ -123,19 +123,15 @@ if __name__ == '__main__':
     err_msg={}
     for action, elem in context:
         if action=="end":
-            modelElement=get_model_element(elem)
-            try:
-                model.insert(modelElement)
-            except errors.InvalidDocument as err:
-                # print("ElementName:{0}; ElementID:{1}; InvalidDocument: {2}".\
-                #         format(modelElement["name"],modelElement["id"],err))
-                elements_with_dot_count+=1
-                err_msg[modelElement["id"]]=str(err)
-                # if "Multiplicity" not in str(err):
-                #     elements_with_dot_count_no_Multiplicity+=1
-                # exit
-            #print (modelElement["name"])
-            count+=1
+            #modelElement=get_model_element(elem)
+#*******************
+#/descendant-or-self::Attribute/Record/Field/@Name[contains(., '.')] | /descendant-or-self::*/@AttributeName[# contains(., '.')] | /descendant-or-self::*/@*[contains(., '.')]
+for attributeElement in elem.xpath("./descendant-or-self::*[@*[contains(., '.')]]",
+                                               namespaces={'www.qpr.com': 'www.qpr.com'}):
+                value=next(iter(attributeElement.xpath("./@AttributeName")),"")
+        field={}
+#****************************
+        count+=1
             if count % 1000  == 0 or count==0:
                 print(count)
                 t.stop()
@@ -145,13 +141,10 @@ if __name__ == '__main__':
             elem.clear()
         while elem.getprevious() is not None:
             del elem.getparent()[0]
-        # if count>1000:
-        #     break
+            # if count>1000:
+            #     break
     del context
     print("Total elements:{}".format(count))
-    #print("Elements with dot in field name:{}".format(elements_with_dot_count))
-    print("Inserted documents:{}".format(model.count()))
-    db.orders.count()
     t.stop()
     print(t.elapsed)
     err_msg_uniq=uniq(err_msg.values())
@@ -166,5 +159,6 @@ if __name__ == '__main__':
     # duration_str = "%d.%d" % (duration.seconds, duration.microseconds / 1000)
     # print("Duration: "+duration_str+"s" )
     exit(0)
+
 
 
