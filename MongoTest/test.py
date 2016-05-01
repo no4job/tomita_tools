@@ -1,4 +1,7 @@
+import copy
+
 __author__ = 'mdu'
+
 from pymongo import MongoClient
 from pymongo import errors
 import datetime
@@ -11,49 +14,8 @@ from datetime import datetime
 import sys
 sys.path.append("C:\IdeaProjects\tomita_tools\MongoTest")
 from Timer import *
+import json
 
-def get_model_element_(elem):
-    modelElement=[]
-#*****************************
-    modelElement.append(dict(parent_object=""))
-    modelElement.append(dict(revision=""))
-    modelElement.append(dict(model_revision=""))
-    modelElement.append(dict(description=""))
-    modelElement.append(dict(native_id=""))
-    modelElement.append(dict(creation_date=datetime.now()))
-    modelElement.append(dict(change_date=datetime.now()))
-    modelElement.append(dict(archive="false"))
-    modelElement.append(dict(deletede="false"))
-#***************************************************
-
-    modelElement.append(dict(name=next(iter(elem.xpath("./@ElementName")),"")))
-    modelElement.append(dict(id=next(iter(elem.xpath("./@ElementId")),"")))
-    modelElement.append(dict(type=next(iter(elem.xpath("./@TypeID")),"")))
-    data_section_2=[]
-    for attributeElement in elem.xpath("./www.qpr.com:Attribute",namespaces={'www.qpr.com': 'www.qpr.com'}):
-        fieldName=next(iter(attributeElement.xpath("./@AttributeName")),"")
-        field={}
-        field_values_array=[]
-        valueArray=[]
-        valueArray.extend(attributeElement.xpath("./www.qpr.com:Value/text()",namespaces={'www.qpr.com': 'www.qpr.com'}))
-        if len(valueArray):
-            field_values_array.append(dict(Value=valueArray))
-        records=[]
-        for recordElement in attributeElement.xpath("./www.qpr.com:Record",namespaces={'www.qpr.com': 'www.qpr.com'}):
-            record=[]
-            for recordFieldElement in recordElement.xpath("./www.qpr.com:Field",namespaces={'www.qpr.com': 'www.qpr.com'}):
-                recordFieldName=next(iter(recordFieldElement.xpath("./@Name")),"")
-                recordFieldValue=next(iter(recordFieldElement.xpath("./@Value")),"")
-                recordField={}
-                recordField[recordFieldName]=recordFieldValue
-                record.append(recordField)
-            records.append(record)
-        if len(records):
-            field_values_array.append(dict(Record=records))
-        field[fieldName]=field_values_array
-        data_section_2.append(field)
-    modelElement.append(dict(data_section_2=data_section_2))
-    return modelElement
 
 def get_model_element(elem):
     modelElement={}
@@ -74,6 +36,7 @@ def get_model_element(elem):
     data_section_2=[]
     for attributeElement in elem.xpath("./www.qpr.com:Attribute",namespaces={'www.qpr.com': 'www.qpr.com'}):
         fieldName=next(iter(attributeElement.xpath("./@AttributeName")),"")
+        fieldName=fieldName.replace('.', '\uff0E')
         field={}
         field_values_array=[]
         valueArray=[]
@@ -86,6 +49,7 @@ def get_model_element(elem):
             record={}
             for recordFieldElement in recordElement.xpath("./www.qpr.com:Field",namespaces={'www.qpr.com': 'www.qpr.com'}):
                 recordFieldName=next(iter(recordFieldElement.xpath("./@Name")),"")
+                recordFieldName=recordFieldName.replace('.', '\uff0E')
                 recordFieldValue=next(iter(recordFieldElement.xpath("./@Value")),"")
                 #recordField={}
                 #recordField[recordFieldName]=recordFieldValue
@@ -102,69 +66,96 @@ def uniq(seq):
     seen = set()
     seen_add = seen.add
     return [x for x in seq if not (x in seen or seen_add(x))]
+def remove_dots(data):
+    if type(data)is dict:
+        for key in data.keys():
+            if type(data[key]) is dict:
+                data[key] = remove_dots(data[key])
+            elif type(data[key])is list:
+                for item in data[key]:
+                    #remove_dots(item)
+                    if type(item)is dict or type(item)is list:
+                        remove_dots(item)
+
+            if '.' in key:
+                data[key.replace('.', '\uff0E')] = data[key]
+                #data[key.replace('.', '#')] = data[key]
+                del data[key]
+    if type(data)is list:
+        for item in data:
+            #remove_dots(item)
+            if type(item)is dict or type(item)is list:
+                remove_dots(item)
+        #if item is dict: data[key] = remove_dots(data[key])
+    return data
 if __name__ == '__main__':
+    time_total=Timer()
+    time_total.start()
     t = Timer()
     t.start()
     # start_time=datetime.now()
     # print("Start processing: "+start_time.strftime("%d.%m.%Y %H:%M:%S.%f"))
     client = MongoClient()
+    client.drop_database("modelDB")
     db=client.modelDB
+
     model = db.model
 
     #input_file='C:\\IdeaProjects\\hh_api_test\\MongoTest\\exp_types_formatted_few_elements.xml'
     #***input_file='exp_types_formatted_few_elements.xml'
-    #input_file='C:\\Users\mdu\\Documents\\qpr_export\\exp.xml'
-    input_file='C:\\Users\МишинДЮ\\Documents\\qpr_export\\exp.xml'
+    input_file='C:\\Users\mdu\\Documents\\qpr_export\\exp.xml'
+    #***input_file='C:\\Users\МишинДЮ\\Documents\\qpr_export\\exp.xml'
     events = ("start", "end")
     context = etree.iterparse(input_file,events = events, tag=('{www.qpr.com}ModelElement'))
     count=0
     elements_with_dot_count=0
     #elements_with_dot_count_no_Multiplicity=0
+    corrected_modelElement={}
     err_msg={}
     for action, elem in context:
         if action=="end":
+            count+=1
             modelElement=get_model_element(elem)
             try:
+                # corrected__modelElement=copy.deepcopy(modelElement)
+                # model.insert(remove_dots(corrected__modelElement))
                 model.insert(modelElement)
             except errors.InvalidDocument as err:
                 # print("ElementName:{0}; ElementID:{1}; InvalidDocument: {2}".\
                 #         format(modelElement["name"],modelElement["id"],err))
+                #print(json.dumps( modelElement))
                 elements_with_dot_count+=1
                 err_msg[modelElement["id"]]=str(err)
                 # if "Multiplicity" not in str(err):
                 #     elements_with_dot_count_no_Multiplicity+=1
                 # exit
             #print (modelElement["name"])
-            count+=1
-            if count % 1000  == 0 or count==0:
+            if count % 1000  == 0 or count==1:
                 print(count)
                 t.stop()
                 print(t.elapsed)
                 t.reset()
                 t.start()
             elem.clear()
-        while elem.getprevious() is not None:
-            del elem.getparent()[0]
-        # if count>1000:
+            while elem.getprevious() is not None:
+                del elem.getparent()[0]
+        # if count>=1000:
         #     break
     del context
+    print(count)
+    t.stop()
+    print(t.elapsed)
+    time_total.stop()
+    print("Total import time:{}".format(time_total.elapsed))
     print("Total elements:{}".format(count))
     #print("Elements with dot in field name:{}".format(elements_with_dot_count))
     print("Inserted documents:{}".format(model.count()))
-    db.orders.count()
-    t.stop()
-    print(t.elapsed)
+    #db.orders.count()
     err_msg_uniq=uniq(err_msg.values())
     print("Elements with dot or $  in field name:{}".format(len(err_msg)))
     print("Unique errors :{}".format(len( err_msg_uniq)))
     for msg in err_msg_uniq:
         print(msg)
-    #print(err_msg)
-    # end_time=datetime.now()
-    # print("End processing: "+end_time.strftime("%d.%m.%Y %H:%M:%S.%f"))
-    # duration = end_time-start_time;
-    # duration_str = "%d.%d" % (duration.seconds, duration.microseconds / 1000)
-    # print("Duration: "+duration_str+"s" )
     exit(0)
 
 
