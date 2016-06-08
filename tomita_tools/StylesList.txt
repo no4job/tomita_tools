@@ -31,3 +31,9 @@
 #Код подразделения,SubdivisionCode
 #Место жительства,Registration
 #Наименование организации,OrganizationName
+#Марка атомобиля,CarModel
+#VIN,VIN
+#Номер автомобиля,CarNumber
+#Время,Time
+#Статья,Article
+#Листы дела,DocumentPage
