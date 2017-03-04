@@ -1,28 +1,75 @@
 __author__ = 'mdu'
-
+from datetime import *
 try:
     from lxml import etree
 except ImportError:
     print("lxml import error")
     raise
-with open("xmltv.xml",encoding="utf8", mode="r") as f:
-    s=f.read()
-    #******* step 2: get <body> element from clean string
-    parser = etree.HTMLParser()
-    #doc_tree = etree.parse(os.path.join(os.getcwd(),"test.htm"),parser)
-    doc_tree = etree.parse(StringIO(s),parser)#parse string cleaned from \n as io stream
-    root = doc_tree.getroot()
-    body = doc_tree.find('body')
-    #******* step 4: create  css markup dictionary {element, nearest outer element with markup css class attribute}
-    elementsWithCSSClass=body.xpath("descendant-or-self::*[@class]")#list of all elements with css class attribute
-    elementsWithMarkupCSSClass=[]#***list of elements with markup css class attribute
-    for element in elementsWithCSSClass:
-        if re.match(cssMarkupClassNamePattern,element.attrib["class"]):
-            elementsWithMarkupCSSClass.append(element)
 
-    s=""
-    for element in textElements:
-        s=s+element[0]
-    #with open("out_text.txt", "w") as f:
-    with open(parameters.outputTextFile,encoding=parameters.outputTextFileEncoding,mode= "w") as f:
-        f.write(s)
+def getDateTime(dateTimeStr):
+    year=int(dateTimeStr[0:4])
+    month=int(dateTimeStr[4:6])
+    day=int(dateTimeStr[6:8])
+    hour=int(dateTimeStr[8:10])
+    minute=int(dateTimeStr[10:12])
+    second=int(dateTimeStr[12:14])
+    return datetime(year, month, day, hour, minute, second)
+def getDateStr(dateTimeStr):
+    year=dateTimeStr[0:4]
+    month=dateTimeStr[4:6]
+    day=dateTimeStr[6:8]
+    return day+"."+month+"."+year
+def getTimeStr(dateTimeStr):
+    hour=dateTimeStr[8:10]
+    minute=dateTimeStr[10:12]
+    second=dateTimeStr[12:14]
+    return hour+":"+minute+":"+second
+def getDateTimeStr(dateTimeStr):
+    return getDateStr(dateTimeStr)+" "+getTimeStr(dateTimeStr)
+def getTimeDelta(startDateTime,stopDateTime):
+    delta=stopDateTime - startDateTime
+    return int(delta.total_seconds())
+def norm(inputStr):
+    return inputStr.replace("\t"," ").replace("\n"," ").strip()
+
+with open("xmltv_channels.csv",encoding="utf8", mode="w") as f:
+    f.write("%s\t%s\t%s\n" %("channel_id","display_name","icon"))
+    for action, element in etree.iterparse("xmltv.xml"):
+        if element.tag=="channel":
+            channel_id=norm(element.attrib["id"])
+            display_name=""
+            icon=""
+            for childElement in list(element):
+                if childElement.tag=="display-name":
+                    display_name=norm(childElement.text)
+                if childElement.tag=="icon":
+                    icon=childElement.attrib["src"]
+            f.write("%s\t%s\t%s\n" %(channel_id,display_name,icon))
+
+
+with open("xmltv_schedule.csv",encoding="utf8", mode="w") as f:
+    f.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" %("channel_id","start","stop","delta","title","desc","category"))
+    for action, element in etree.iterparse("xmltv.xml"):
+        if element.tag=="programme":
+            start=""
+            stop=""
+            channel=""
+            startStr=norm(str.split(element.attrib["start"])[0])
+            stopStr=norm(str.split(element.attrib["stop"])[0])
+            start=getDateTimeStr(startStr)
+            stop=getDateTimeStr(stopStr)
+            delta=getTimeDelta(getDateTime(startStr),getDateTime(stopStr))
+            channel_id=norm(str.split(element.attrib["channel"])[0])
+            #print("%s, %s" % (start,stop))
+            #print("%s, %s" % (str.split(element.attrib["start"])[0],str.split(element.attrib["stop"])[0]))
+            title=""
+            desc=""
+            category=""
+            for childElement in list(element):
+                if childElement.tag=="title":
+                    title=norm(childElement.text)
+                if childElement.tag=="desc":
+                    desc=norm(childElement.text)
+                if childElement.tag=="category":
+                    category=norm(childElement.text)
+            f.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" %(channel_id,start,stop,delta,title,desc,category))
